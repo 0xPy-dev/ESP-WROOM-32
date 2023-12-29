@@ -131,20 +131,143 @@ void read_ip_list() {
   }
 }
 
+String human_view(int value) {
+  int level = 0;
+  String scale_bytes[] = {"B", "K", "M", "G"};
+  
+  while (value/1024 >= 1000) {
+    value /= 1024;
+    level++;
+  }
+  return(String(value)+scale_bytes[level]);
+}
+
+void show_fsstat(String human = "") {
+  String total, used, free;
+  
+  if (human != "") {
+    total = human_view(SPIFFS.totalBytes());
+    used  = human_view(SPIFFS.usedBytes());
+    free  = human_view(SPIFFS.totalBytes() - SPIFFS.usedBytes());
+  }
+  else {
+    total = String(SPIFFS.totalBytes());
+    used  = String(SPIFFS.usedBytes());
+    free  = String(SPIFFS.totalBytes() - SPIFFS.usedBytes());
+  }
+  int procent = (SPIFFS.usedBytes() / SPIFFS.totalBytes()) * 100;
+  if (procent == 0) procent++;
+  
+  Serial.println("Файловая система ESP32\tВсего\tИспользовано\tСвободно\tИспользовано%"); // HEADER
+  Serial.print  ("/\t\t\t" + total);
+  Serial.print  ("\t"  + used);
+  Serial.print  ("\t\t"  + free);
+  Serial.println("\t\t"  + String(procent));
+}
+
+void show_file(String path) {
+  SPIFFS.begin(true);
+
+  if (path[0] != '/') {
+    path = "/" + path;
+  }
+
+  File file = SPIFFS.open(path, "r");
+  String content = file.readString();
+  Serial.println(content);
+  file.close();
+}
+
 void del_file(String path) {
   SPIFFS.begin(true);
+  
+  if (path[0] != '/') {
+    path = "/" + path;
+  }
+  
   SPIFFS.remove(path);
 }
 
-void list_dir(String path) {
+void list_dir(String path="/") {
   SPIFFS.begin(true);
   File dir = SPIFFS.open(path);
   File file = dir.openNextFile();
 
   while (file) {
-    Serial.println(file.name());
+    if (file.isDirectory()) {
+      Serial.print("\t" + String(file.size()));
+      Serial.println("\t<DIR> \t" + String(file.name()) + "/");
+    }
+    else {
+      Serial.print("\t" + String(file.size()));
+      Serial.println("\t<FILE>\t" + String(file.name()));
+    }
+    
     delay(1000);
     file = dir.openNextFile();
+  }
+}
+
+void help() {
+  Serial.println("help");
+}
+
+String split(String text, char delimiter, int index_of) {
+  int i = 0;
+  int len_buff = 32;
+  String buff[len_buff];
+  
+  for (auto symbol: text) if (symbol == delimiter) {
+    int p = text.indexOf(delimiter);
+    
+    if (i < len_buff) {
+      buff[i] = text.substring(0, p);
+      text = text.substring(p+1);
+      i++;
+    }
+    else {
+      Serial.println("Error write, buffer overflow!");
+      break;
+    }
+  } 
+  else {
+    buff[i] = text;
+  }
+    
+  return(buff[index_of]);
+}
+
+void handle_input(String output) {
+  int i = 0;
+  String res = split(output, ' ', i);
+  
+  if (res == "ls") {
+    i += 1;
+    String argument = String(split(output, ' ', i));
+    
+    if (argument != "") {
+      return(list_dir(argument));
+    }
+    else list_dir();
+  }
+  else if (res == "del") {
+    i += 1;
+    return(del_file(split(output, ' ', i)));
+  }
+  else if (res == "show") {
+    i += 1;
+    return(show_file(split(output, ' ', i)));
+  }
+  else if (res == "fsstat") {
+    i += 1;
+    return(show_fsstat());
+  }
+  else if (res == "help") {
+    return(help());
+  }
+  else {
+    if (res == "quit") return;
+    else return(help());
   }
 }
 
@@ -152,8 +275,6 @@ void setup() {
   Serial.begin(115200);
   delay(100);
   start();
-  del_file("/test.txt");
-  list_dir("/");
   
   IPAddress local_ip(192, 168, 48, 106);
   IPAddress gateway(192, 168, 48, 1);
@@ -183,16 +304,16 @@ void loop() {
   
   for (int index=0;index<len_array;index++) {
     if (Serial.available()) {
-      String output = input();
+      String output;
       Serial.println("#Переключение в интерактивный режим");
       Serial.println("#Для выхода введите команду: quit");
-
-      String list_commands[] = { "ls", "del", "help" };
       
       while (output != "quit") {
-        Serial.print("interactive mode:~> " + output);
+        Serial.print("interactive mode:~> ");
         output = input();
-        Serial.println();
+        Serial.println(output);
+        
+        handle_input(output);
       }
     }
     
