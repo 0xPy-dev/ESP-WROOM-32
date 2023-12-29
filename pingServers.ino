@@ -13,7 +13,7 @@
 
 const char* ssid     = "******";
 const char* password = "******";
-byte mac[] = { 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX };
+//byte mac[] = { 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX };
 
 const char* ntpServer = "Your NTP POOL";
 const long  gmtOffset_sec = 0;
@@ -131,11 +131,30 @@ void read_ip_list() {
   }
 }
 
+void del_file(String path) {
+  SPIFFS.begin(true);
+  SPIFFS.remove(path);
+}
+
+void list_dir(String path) {
+  SPIFFS.begin(true);
+  File dir = SPIFFS.open(path);
+  File file = dir.openNextFile();
+
+  while (file) {
+    Serial.println(file.name());
+    delay(1000);
+    file = dir.openNextFile();
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   delay(100);
   start();
-
+  del_file("/test.txt");
+  list_dir("/");
+  
   IPAddress local_ip(192, 168, 48, 106);
   IPAddress gateway(192, 168, 48, 1);
   IPAddress subnet(255, 255, 255, 0);
@@ -163,6 +182,20 @@ void loop() {
   int err = 0;
   
   for (int index=0;index<len_array;index++) {
+    if (Serial.available()) {
+      String output = input();
+      Serial.println("#Переключение в интерактивный режим");
+      Serial.println("#Для выхода введите команду: quit");
+
+      String list_commands[] = { "ls", "del", "help" };
+      
+      while (output != "quit") {
+        Serial.print("interactive mode:~> " + output);
+        output = input();
+        Serial.println();
+      }
+    }
+    
     char ip[remote_hosts[index].length() + 1];
     strcpy(ip, remote_hosts[index].c_str());
     int len_ip = strlen(ip);
