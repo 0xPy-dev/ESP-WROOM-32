@@ -260,7 +260,7 @@ void handle_input(String output) {
   }
   else if (res == "fsstat") {
     i += 1;
-    return(show_fsstat());
+    return(show_fsstat(split(output, ' ', i)));
   }
   else if (res == "help") {
     return(help());
