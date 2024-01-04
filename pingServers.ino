@@ -92,7 +92,7 @@ String input() {
 
 void get_ip_list() {
   HTTPClient http;
-  String url = "https://raw.githubusercontent.com/0xPy-dev/ESP-WROOM-32/main/ip.lst";
+  String url = "https://raw.githubusercontent.com/0xPy-dev/ESP-WROOM-32/main/data/ip.lst";
   
   http.begin(url.c_str());
   int ResponseCode = http.GET();
